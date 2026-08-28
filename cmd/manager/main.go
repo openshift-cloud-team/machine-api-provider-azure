@@ -102,7 +102,7 @@ func main() {
 		majorVersion = 4
 	}
 	defaultMutableGate := feature.DefaultMutableFeatureGate
-	gateOpts, err := features.NewFeatureGateOptions(defaultMutableGate, majorVersion, apifeatures.SelfManaged, apifeatures.FeatureGateAzureWorkloadIdentity, apifeatures.FeatureGateMachineAPIMigration)
+	gateOpts, err := features.NewFeatureGateOptions(defaultMutableGate, majorVersion, apifeatures.SelfManaged, apifeatures.FeatureGateMachineAPIMigration)
 	if err != nil {
 		klog.Fatalf("Error setting up feature gates: %v", err)
 	}
@@ -152,8 +152,6 @@ func main() {
 	}
 
 	klog.Infof("FeatureGateMachineAPIMigration initialised: %t", defaultMutableGate.Enabled(featuregate.Feature(apifeatures.FeatureGateMachineAPIMigration)))
-	klog.Infof("FeatureGateAzureWorkloadIdentity initialised: %t", defaultMutableGate.Enabled(featuregate.Feature(apifeatures.FeatureGateAzureWorkloadIdentity)))
-	azureWorkloadIdentityEnabled := defaultMutableGate.Enabled(featuregate.Feature(apifeatures.FeatureGateAzureWorkloadIdentity))
 
 	// Setup a Manager
 	mgr, err := manager.New(cfg, opts)
@@ -167,10 +165,9 @@ func main() {
 
 	// Initialize machine actuator.
 	machineActuator := actuator.NewActuator(actuator.ActuatorParams{
-		CoreClient:                   mgr.GetClient(),
-		ReconcilerBuilder:            actuator.NewReconciler,
-		EventRecorder:                mgr.GetEventRecorderFor("azure-controller"),
-		AzureWorkloadIdentityEnabled: azureWorkloadIdentityEnabled,
+		CoreClient:        mgr.GetClient(),
+		ReconcilerBuilder: actuator.NewReconciler,
+		EventRecorder:     mgr.GetEventRecorderFor("azure-controller"),
 	})
 
 	if err := machinev1.AddToScheme(mgr.GetScheme()); err != nil {
@@ -193,8 +190,6 @@ func main() {
 		Client:                     mgr.GetClient(),
 		Log:                        ctrl.Log.WithName("controllers").WithName("MachineSet"),
 		ResourceSkusServiceBuilder: resourceskus.NewService,
-
-		AzureWorkloadIdentityEnabled: azureWorkloadIdentityEnabled,
 	}).SetupWithManager(mgr, controller.Options{}); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "MachineSet")
 		os.Exit(1)

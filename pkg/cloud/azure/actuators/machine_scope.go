@@ -80,9 +80,8 @@ const (
 // MachineScopeParams defines the input parameters used to create a new MachineScope.
 type MachineScopeParams struct {
 	AzureClients
-	Machine                      *machinev1.Machine
-	CoreClient                   controllerclient.Client
-	AzureWorkloadIdentityEnabled bool
+	Machine    *machinev1.Machine
+	CoreClient controllerclient.Client
 }
 
 // NewMachineScope creates a new MachineScope from the supplied parameters.
@@ -139,8 +138,6 @@ func NewMachineScope(params MachineScopeParams) (*MachineScope, error) {
 		armEndpoint:        armEndpoint,
 		Tags:               tags,
 		azureResourceGroup: resourceGroup,
-
-		azureWorkloadIdentityEnabled: params.AzureWorkloadIdentityEnabled,
 	}
 
 	if err = updateFromSecret(params.CoreClient, machineScope); err != nil {
@@ -182,9 +179,6 @@ type MachineScope struct {
 
 	// azureResourceGroup is the resource group pulled from the cluster infrastructure object
 	azureResourceGroup string
-
-	// azureWorkloadIdentityEnabled for if the cluster has opted in to azure workload identity
-	azureWorkloadIdentityEnabled bool
 }
 
 // Name returns the machine name.
@@ -401,7 +395,7 @@ func updateFromSecret(coreClient controllerclient.Client, scope *MachineScope) e
 	var cred azcore.TokenCredential
 	cloudConfig := getCloudConfig(env)
 
-	if scope.azureWorkloadIdentityEnabled && strings.TrimSpace(clientSecret) == "" {
+	if strings.TrimSpace(clientSecret) == "" {
 		options := azidentity.WorkloadIdentityCredentialOptions{
 			ClientOptions: azcore.ClientOptions{
 				Cloud: cloudConfig,

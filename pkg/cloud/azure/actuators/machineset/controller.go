@@ -62,8 +62,6 @@ type Reconciler struct {
 	Log                        logr.Logger
 	ResourceSkusServiceBuilder resourceskus.ResourceSkusServiceBuilderFuncType
 
-	AzureWorkloadIdentityEnabled bool
-
 	recorder record.EventRecorder
 	scheme   *runtime.Scheme
 }
@@ -202,8 +200,6 @@ func createMachineScope(r *Reconciler, machineSet *machinev1.MachineSet) (*actua
 			Spec: machineSet.Spec.Template.Spec,
 		},
 		CoreClient: r.Client,
-
-		AzureWorkloadIdentityEnabled: r.AzureWorkloadIdentityEnabled,
 	}
 
 	machineScope, err := actuators.NewMachineScope(params)

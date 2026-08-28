@@ -52,25 +52,21 @@ type Actuator struct {
 	eventRecorder record.EventRecorder
 
 	reconcilerBuilder func(scope *actuators.MachineScope) *Reconciler
-
-	azureWorkloadIdentityEnabled bool
 }
 
 // ActuatorParams holds parameter information for Actuator.
 type ActuatorParams struct {
-	CoreClient                   controllerclient.Client
-	EventRecorder                record.EventRecorder
-	ReconcilerBuilder            func(scope *actuators.MachineScope) *Reconciler
-	AzureWorkloadIdentityEnabled bool
+	CoreClient        controllerclient.Client
+	EventRecorder     record.EventRecorder
+	ReconcilerBuilder func(scope *actuators.MachineScope) *Reconciler
 }
 
 // NewActuator returns an actuator.
 func NewActuator(params ActuatorParams) *Actuator {
 	return &Actuator{
-		coreClient:                   params.CoreClient,
-		eventRecorder:                params.EventRecorder,
-		reconcilerBuilder:            params.ReconcilerBuilder,
-		azureWorkloadIdentityEnabled: params.AzureWorkloadIdentityEnabled,
+		coreClient:        params.CoreClient,
+		eventRecorder:     params.EventRecorder,
+		reconcilerBuilder: params.ReconcilerBuilder,
 	}
 }
 
@@ -90,9 +86,8 @@ func (a *Actuator) Create(ctx context.Context, machine *machinev1.Machine) error
 	klog.Infof("Creating machine %v", machine.Name)
 
 	scope, err := actuators.NewMachineScope(actuators.MachineScopeParams{
-		Machine:                      machine,
-		CoreClient:                   a.coreClient,
-		AzureWorkloadIdentityEnabled: a.azureWorkloadIdentityEnabled,
+		Machine:    machine,
+		CoreClient: a.coreClient,
 	})
 	if err != nil {
 		return a.handleMachineError(machine, machineapierrors.InvalidMachineConfiguration("failed to create machine %q scope: %v", machine.Name, err), createEventAction)
@@ -142,9 +137,8 @@ func (a *Actuator) Delete(ctx context.Context, machine *machinev1.Machine) error
 	klog.Infof("Deleting machine %v", machine.Name)
 
 	scope, err := actuators.NewMachineScope(actuators.MachineScopeParams{
-		Machine:                      machine,
-		CoreClient:                   a.coreClient,
-		AzureWorkloadIdentityEnabled: a.azureWorkloadIdentityEnabled,
+		Machine:    machine,
+		CoreClient: a.coreClient,
 	})
 	if err != nil {
 		return a.handleMachineError(machine, machineapierrors.DeleteMachine("failed to create machine %q scope: %v", machine.Name, err), deleteEventAction)
@@ -178,9 +172,8 @@ func (a *Actuator) Update(ctx context.Context, machine *machinev1.Machine) error
 	klog.Infof("Updating machine %v", machine.Name)
 
 	scope, err := actuators.NewMachineScope(actuators.MachineScopeParams{
-		Machine:                      machine,
-		CoreClient:                   a.coreClient,
-		AzureWorkloadIdentityEnabled: a.azureWorkloadIdentityEnabled,
+		Machine:    machine,
+		CoreClient: a.coreClient,
 	})
 	if err != nil {
 		return a.handleMachineError(machine, machineapierrors.UpdateMachine("failed to create machine %q scope: %v", machine.Name, err), updateEventAction)
@@ -247,9 +240,8 @@ func (a *Actuator) Exists(ctx context.Context, machine *machinev1.Machine) (bool
 	klog.Infof("%s: actuator checking if machine exists", machine.GetName())
 
 	scope, err := actuators.NewMachineScope(actuators.MachineScopeParams{
-		Machine:                      machine,
-		CoreClient:                   a.coreClient,
-		AzureWorkloadIdentityEnabled: a.azureWorkloadIdentityEnabled,
+		Machine:    machine,
+		CoreClient: a.coreClient,
 	})
 	if err != nil {
 		return false, fmt.Errorf("failed to create scope: %+v", err)
