@@ -43,6 +43,7 @@ var (
 // to periodically refresh data in the background.
 type Cache struct {
 	client Client
+	mu     sync.Mutex
 
 	// location is the Azure location for which this cache stores sku info.
 	// we do lookup once per reconcile for the given cluster/location.
@@ -65,6 +66,7 @@ type NewCacheFunc func(azureClients actuators.AzureClients, location string) *Ca
 var (
 	_           Client = &AzureClient{}
 	doOnce      sync.Once
+	cacheMu     sync.Mutex
 	clientCache Cacher
 )
 
@@ -87,6 +89,9 @@ func GetCache(azureClients actuators.AzureClients, location string) (*Cache, err
 		return nil, errors.Wrap(err, "failed creating LRU cache for resourceSKUs cache")
 	}
 
+	cacheMu.Lock()
+	defer cacheMu.Unlock()
+
 	key := location + "_" + azureClients.SubscriptionID
 	c, ok := clientCache.Get(key)
 	if ok {
@@ -106,15 +111,20 @@ func NewStaticCache(data []compute.ResourceSku, location string) *Cache {
 	}
 }
 
-func (c *Cache) refresh(ctx context.Context, location string) error {
-	data, err := c.client.List(ctx, fmt.Sprintf("location eq '%s'", location))
-	if err != nil {
-		return errors.Wrap(err, "failed to refresh resource sku cache")
+func (c *Cache) getResourceSkus(ctx context.Context) ([]compute.ResourceSku, error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	if c.data == nil {
+		data, err := c.client.List(ctx, fmt.Sprintf("location eq '%s'", c.location))
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to refresh resource sku cache")
+		}
+
+		c.data = data
 	}
 
-	c.data = data
-
-	return nil
+	return c.data, nil
 }
 
 // Get returns a resource SKU with the provided name and category. It
@@ -123,20 +133,19 @@ func (c *Cache) refresh(ctx context.Context, location string) error {
 // supported in region), which is why it returns an error and not a
 // boolean.
 func (c *Cache) Get(ctx context.Context, name string, kind ResourceType) (SKU, error) {
-	if c.data == nil {
-		if err := c.refresh(ctx, c.location); err != nil {
-			return SKU{}, err
-		}
+	data, err := c.getResourceSkus(ctx)
+	if err != nil {
+		return SKU{}, err
 	}
 
-	for _, sku := range c.data {
+	for _, sku := range data {
 		if sku.Name != nil && strings.EqualFold(*sku.Name, name) {
 			return SKU(sku), nil
 		}
 	}
 
 	availableInRegion := []string{}
-	for _, sku := range c.data {
+	for _, sku := range data {
 		if ptr.Deref[string](sku.ResourceType, "") == string(kind) {
 			availableInRegion = append(availableInRegion, ptr.Deref[string](sku.Name, ""))
 		}
@@ -147,14 +156,13 @@ func (c *Cache) Get(ctx context.Context, name string, kind ResourceType) (SKU, e
 
 // Map invokes a function over all cached values.
 func (c *Cache) Map(ctx context.Context, mapFn func(sku SKU)) error {
-	if c.data == nil {
-		if err := c.refresh(ctx, c.location); err != nil {
-			return err
-		}
+	data, err := c.getResourceSkus(ctx)
+	if err != nil {
+		return err
 	}
 
-	for i := range c.data {
-		val := SKU(c.data[i])
+	for i := range data {
+		val := SKU(data[i])
 		mapFn(val)
 	}
 

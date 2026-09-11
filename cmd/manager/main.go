@@ -92,7 +92,7 @@ func main() {
 
 	maxConcurrentReconciles := flag.Int(
 		"max-concurrent-reconciles",
-		1,
+		10,
 		"Maximum number of concurrent reconciles per controller instance.",
 	)
 	// Sets up feature gates (version from build time, default 4 for unknown)

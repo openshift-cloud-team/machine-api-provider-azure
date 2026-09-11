@@ -18,6 +18,8 @@ package resourceskus
 
 import (
 	"context"
+	"runtime"
+	"sync"
 	"testing"
 
 	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2021-11-01/compute"
@@ -25,6 +27,63 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 )
+
+type countingClient struct {
+	data  []compute.ResourceSku
+	mu    sync.Mutex
+	calls int
+}
+
+func (c *countingClient) List(context.Context, string) ([]compute.ResourceSku, error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	c.calls++
+	runtime.Gosched()
+	return c.data, nil
+}
+
+func (c *countingClient) Calls() int {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	return c.calls
+}
+
+func TestCacheGetConcurrentInitializesOnce(t *testing.T) {
+	client := &countingClient{
+		data: []compute.ResourceSku{{
+			Name:         to.StringPtr("foo"),
+			ResourceType: to.StringPtr(string(VirtualMachines)),
+		}},
+	}
+	cache := &Cache{client: client, location: "test"}
+
+	const workers = 10
+	start := make(chan struct{})
+	errs := make(chan error, workers)
+	var wg sync.WaitGroup
+	for range workers {
+		wg.Go(func() {
+			<-start
+			_, err := cache.Get(context.Background(), "foo", VirtualMachines)
+			errs <- err
+		})
+	}
+
+	close(start)
+	wg.Wait()
+	close(errs)
+
+	for err := range errs {
+		if err != nil {
+			t.Fatalf("unexpected error retrieving cached SKU: %v", err)
+		}
+	}
+	if got := client.Calls(); got != 1 {
+		t.Fatalf("expected a single Azure SKU list call, got %d", got)
+	}
+}
 
 func TestCacheGet(t *testing.T) {
 	cases := map[string]struct {
