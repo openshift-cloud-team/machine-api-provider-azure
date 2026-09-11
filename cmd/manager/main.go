@@ -115,7 +115,7 @@ func main() {
 	flag.Parse()
 
 	cfg := config.GetConfigOrDie()
-	syncPeriod := 10 * time.Minute
+	syncPeriod := time.Hour
 
 	opts := manager.Options{
 		HealthProbeBindAddress:  *healthAddr,
